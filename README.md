@@ -893,10 +893,16 @@ This multi-agent approach results in a system that is:
 
 AuditAIFlow reduced my enterprise audit time from 20+ hours to ~2 minutes per cycle, enabling continuous compliance monitoring where previously we could only afford quarterly reviews. The automated system flags violations that manual reviewers consistently miss due to fatigue and cognitive load, improving our compliance posture from ~90% to 100% rule coverage. I can now audit across new domains (security logs, performance metrics, billing accuracy) that I'd otherwise not have time to check given resource constraints and existing workloads.
 
-**If I had more time, I would**:
+**Future Enhacements**:
 1. Integrate with **MCP servers** for standardized tool interoperability
 2. Implement **memory consolidation** with vector database for learning audit patterns
 3. Add **sub-goal delegation**: specialists can delegate complex tasks to sub-agents
 4. Build **remediation workflows**: automatically trigger fixes for common violations
 5. Implement **bias monitoring**: audit fairness in anomaly detection (e.g., flag admin activity equally regardless of tenure)
-6. Connect to **real enterprise systems**: ERP, CRM, billing, security logs instead of sample data
+6. Can be extended to **real enterprise systems**: ERP, CRM, billing, security logs instead of sample data
+7. We can extend AuditAIFlow with a **DocumentProcessingAgent** specialist that implements the full ReAct loop:
+- **THINK**: Analyze document type (PDF, scan, handwritten) and determine extraction strategy
+- **ACT**: Invoke GenAI vision-based OCR tool to extract structured data with high confidence
+- **OBSERVE**: Validate extracted fields against schema, flag low-confidence extractions for manual review
+
+This specialist delegates extracted audit records to existing agents (ComplianceAgent, DataValidationAgent, AnomalyDetectionAgent) via A2A protocol, creating a seamless multi-source document ingestion pipeline with zero manual data entry.
