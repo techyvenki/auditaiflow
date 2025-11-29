@@ -1,0 +1,306 @@
+"""
+Audit tools for enterprise compliance, data validation, and anomaly detection.
+
+These are the "hands" of the audit agents - concise, focused functions that
+perform specific audit tasks and return summarized results to prevent context bloat.
+
+Design Principle: Context Engineering at Tool Level
+- Return only summaries and metrics, never raw data
+- Prevent context window waste by aggregating results
+- Enable model to reason efficiently on high-level findings
+"""
+
+from typing import List, Dict, Any
+from auditaiflow.config import (
+    COMPLIANCE_RULES,
+    AUDIT_CONFIG,
+    FindingSeverity,
+)
+
+# ============================================================================
+# TOOL 1: VERIFY_COMPLIANCE
+# ============================================================================
+
+def verify_compliance(audit_records: List[Dict], rule_id: str = "CR001") -> Dict[str, Any]:
+    """
+    Verify audit records against specific compliance rule.
+    
+    This tool deterministically applies compliance rules to audit records and returns
+    a concise summary (violations_found count) rather than raw violation objects.
+    
+    Design: CONCISE OUTPUT
+    - Returns: {violations_found: int, severity_breakdown: dict}
+    - NOT: [list of all violation objects]
+    
+    Args:
+        audit_records: List of audit event dictionaries
+        rule_id: Compliance rule ID to check (CR001, CR002, etc)
+    
+    Returns:
+        {
+            'compliant': bool,
+            'violations_found': int,
+            'violations_summary': str,
+            'severity': str,
+            'details': list (top 3 violations only)
+        }
+    
+    Example:
+        >>> records = [{"action": "CREATE", "user": "user1"}, ...]
+        >>> result = verify_compliance(records, "CR001")
+        >>> print(f"{result['violations_found']} violations detected")
+    """
+    violations = []
+    
+    # Get the compliance rule
+    rule = next((r for r in COMPLIANCE_RULES if r["rule_id"] == rule_id), None)
+    if not rule:
+        return {
+            "compliant": True,
+            "violations_found": 0,
+            "violations_summary": "Rule not found",
+            "severity": FindingSeverity.NONE,
+            "details": []
+        }
+    
+    # Apply compliance rules deterministically
+    if rule_id == "CR001":  # User Authorization
+        for record in audit_records:
+            if record.get("action") == "CREATE":
+                violations.append({
+                    "record_id": record.get("record_id"),
+                    "violation": f"CREATE by {record.get('user')} lacks manager approval",
+                    "severity": FindingSeverity.CRITICAL
+                })
+    
+    elif rule_id == "CR002":  # Data Retention
+        for record in audit_records:
+            if record.get("action") == "DELETE":
+                if record.get("status") != "ARCHIVED":
+                    violations.append({
+                        "record_id": record.get("record_id"),
+                        "violation": f"DELETE not archived: {record.get('record_id')}",
+                        "severity": FindingSeverity.HIGH
+                    })
+    
+    elif rule_id == "CR003":  # Audit Trail Integrity
+        for record in audit_records:
+            if not record.get("timestamp"):
+                violations.append({
+                    "record_id": record.get("record_id"),
+                    "violation": "Missing timestamp",
+                    "severity": FindingSeverity.CRITICAL
+                })
+    
+    elif rule_id == "CR004":  # Access Control
+        for record in audit_records:
+            if "admin" not in record.get("user", "").lower() and "system" in record.get("action", "").lower():
+                violations.append({
+                    "record_id": record.get("record_id"),
+                    "violation": f"Non-admin user cannot perform {record.get('action')}",
+                    "severity": FindingSeverity.HIGH
+                })
+    
+    return {
+        "compliant": len(violations) == 0,
+        "violations_found": len(violations),
+        "violations_summary": f"{len(violations)} compliance violations detected",
+        "severity": FindingSeverity.CRITICAL if len(violations) > 0 else FindingSeverity.NONE,
+        "details": [v["violation"] for v in violations[:3]]  # Top 3 only (context engineering)
+    }
+
+# ============================================================================
+# TOOL 2: VALIDATE_DATA_INTEGRITY
+# ============================================================================
+
+def validate_data_integrity(audit_records: List[Dict]) -> Dict[str, Any]:
+    """
+    Validate data integrity and quality across all audit records.
+    
+    This tool checks:
+    - Required fields present
+    - Valid field values
+    - Data type consistency
+    - Relationship validity
+    
+    Returns aggregate metrics (quality_score) not individual failures.
+    
+    Design: CONCISE OUTPUT
+    - Returns: {quality_score: float, failure_count: int}
+    - NOT: [all 50+ failure objects]
+    
+    Args:
+        audit_records: List of audit event dictionaries
+    
+    Returns:
+        {
+            'records_checked': int,
+            'validation_failures': int,
+            'quality_score': float (0-100),
+            'validation_passed': bool,
+            'failure_patterns': list (top failure types)
+        }
+    """
+    if not audit_records:
+        return {
+            "records_checked": 0,
+            "validation_failures": 0,
+            "quality_score": 100.0,
+            "validation_passed": True,
+            "failure_patterns": []
+        }
+    
+    failures = 0
+    failure_patterns = {}
+    
+    for record in audit_records:
+        # Check required fields
+        required_fields = ["record_id", "timestamp", "system", "action", "user", "status"]
+        for field in required_fields:
+            if not record.get(field):
+                failures += 1
+                pattern = f"Missing {field}"
+                failure_patterns[pattern] = failure_patterns.get(pattern, 0) + 1
+        
+        # Check valid values
+        valid_systems = ["ERP", "CRM", "Billing", "HR", "Security", "Analytics"]
+        if record.get("system") not in valid_systems:
+            failures += 1
+            pattern = f"Invalid system: {record.get('system')}"
+            failure_patterns[pattern] = failure_patterns.get(pattern, 0) + 1
+        
+        valid_statuses = ["SUCCESS", "FAILED", "PENDING", "ARCHIVED"]
+        if record.get("status") not in valid_statuses:
+            failures += 1
+            pattern = f"Invalid status: {record.get('status')}"
+            failure_patterns[pattern] = failure_patterns.get(pattern, 0) + 1
+    
+    quality_score = ((len(audit_records) - failures) / len(audit_records)) * 100
+    
+    return {
+        "records_checked": len(audit_records),
+        "validation_failures": failures,
+        "quality_score": quality_score,
+        "validation_passed": quality_score >= AUDIT_CONFIG.quality_score_threshold,
+        "failure_patterns": sorted(failure_patterns.items(), key=lambda x: x[1], reverse=True)[:5]
+    }
+
+# ============================================================================
+# TOOL 3: DETECT_ANOMALIES
+# ============================================================================
+
+def detect_anomalies(audit_records: List[Dict]) -> Dict[str, Any]:
+    """
+    Detect suspicious patterns and anomalies in audit records.
+    
+    This tool identifies:
+    - Unusual transaction amounts
+    - Failed operation patterns
+    - Administrative access patterns
+    - Rapid operation sequences
+    
+    Returns anomaly counts with confidence scores, NOT raw anomaly objects.
+    
+    Design: CONCISE OUTPUT
+    - Returns: {total_anomalies: int, critical_count: int, anomaly_summary: list}
+    - NOT: [all 100+ anomaly objects]
+    
+    Args:
+        audit_records: List of audit event dictionaries
+    
+    Returns:
+        {
+            'anomalies_detected': bool,
+            'total_anomalies': int,
+            'critical_count': int,
+            'anomaly_summary': list,
+            'confidence_scores': dict
+        }
+    """
+    anomalies = []
+    anomaly_types = {}
+    
+    if not audit_records:
+        return {
+            "anomalies_detected": False,
+            "total_anomalies": 0,
+            "critical_count": 0,
+            "anomaly_summary": [],
+            "confidence_scores": {}
+        }
+    
+    # Rule 1: Detect large transactions
+    for record in audit_records:
+        if record.get("action") == "CREATE":
+            amount = record.get("data_changed", {}).get("amount", 0)
+            if amount > AUDIT_CONFIG.large_transaction_threshold:
+                anomalies.append({
+                    "type": "LARGE_TRANSACTION",
+                    "record_id": record.get("record_id"),
+                    "details": f"Amount: ${amount:,.2f}",
+                    "severity": FindingSeverity.CRITICAL,
+                    "confidence": 0.95
+                })
+                anomaly_types["LARGE_TRANSACTION"] = anomaly_types.get("LARGE_TRANSACTION", 0) + 1
+    
+    # Rule 2: Detect failed operations
+    failed_count = 0
+    for record in audit_records:
+        if record.get("status") == "FAILED":
+            failed_count += 1
+            anomalies.append({
+                "type": "OPERATION_FAILURE",
+                "record_id": record.get("record_id"),
+                "details": f"System: {record.get('system')}",
+                "severity": FindingSeverity.HIGH,
+                "confidence": 0.90
+            })
+    
+    anomaly_types["OPERATION_FAILURE"] = anomaly_types.get("OPERATION_FAILURE", 0) + failed_count
+    
+    # Rule 3: Detect admin activity patterns
+    admin_count = len([r for r in audit_records if "admin" in r.get("user", "").lower()])
+    if admin_count > AUDIT_CONFIG.admin_activity_threshold:
+        anomalies.append({
+            "type": "ADMIN_ACTIVITY",
+            "record_id": f"PATTERN_{admin_count}_admins",
+            "details": f"{admin_count} admin operations detected",
+            "severity": FindingSeverity.MEDIUM,
+            "confidence": 0.85
+        })
+        anomaly_types["ADMIN_ACTIVITY"] = admin_count
+    
+    # Separate critical anomalies
+    critical_anomalies = [a for a in anomalies if a["severity"] == FindingSeverity.CRITICAL]
+    
+    return {
+        "anomalies_detected": len(anomalies) > 0,
+        "total_anomalies": len(anomalies),
+        "critical_count": len(critical_anomalies),
+        "anomaly_summary": [a["type"] for a in anomalies[:5]],  # Top 5 only (context engineering)
+        "confidence_scores": {k: len([a for a in anomalies if a["type"] == k]) for k in anomaly_types.keys()}
+    }
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+def audit_record_to_dict(record: Any) -> Dict[str, Any]:
+    """
+    Convert AuditRecord object to dictionary.
+    
+    Helper for tool consumption of audit records.
+    """
+    if isinstance(record, dict):
+        return record
+    
+    # Handle dataclass or object with attributes
+    return {
+        "record_id": getattr(record, "record_id", ""),
+        "timestamp": getattr(record, "timestamp", ""),
+        "operation": getattr(record, "operation", ""),
+        "user": getattr(record, "user", ""),
+        "status": getattr(record, "status", ""),
+        "metadata": getattr(record, "metadata", {})
+    }

@@ -12,14 +12,25 @@ from typing import List, Dict, Any
 from datetime import datetime
 import uuid
 
-from .agent_utils import (
-    AgentGoal,
-    AgentFinding,
-    SharedAuditSession,
-    generate_unique_id,
-    consolidate_findings,
-    get_logger,
-)
+# Handle both package and script imports
+try:
+    from .agent_utils import (
+        AgentGoal,
+        AgentFinding,
+        SharedAuditSession,
+        generate_unique_id,
+        consolidate_findings,
+        get_logger,
+    )
+except ImportError:
+    from agent_utils import (
+        AgentGoal,
+        AgentFinding,
+        SharedAuditSession,
+        generate_unique_id,
+        consolidate_findings,
+        get_logger,
+    )
 
 # ============================================================================
 # BASE SPECIALIST AGENT CLASS

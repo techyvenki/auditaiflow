@@ -9,8 +9,8 @@ import os
 import sys
 from datetime import datetime
 
-# Add submission folder to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add parent directory to path so auditaiflow package can be imported
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_adk_imports():
     """Test 1: Verify ADK agent imports work"""
@@ -19,11 +19,11 @@ def test_adk_imports():
     print("="*70)
     
     try:
-        from .agent_adk import (
+        from auditaiflow.agent_adk import (
             GoogleADKOrchestratorAgent,
             create_audit_agent,
         )
-        from .agent_utils import SharedAuditSession
+        from auditaiflow.agent_utils import SharedAuditSession
         print("✅ GoogleADKOrchestratorAgent imported successfully")
         print("✅ create_audit_agent imported successfully")
         print("✅ SharedAuditSession imported successfully")
@@ -40,8 +40,8 @@ def test_adk_instantiation():
     print("="*70)
     
     try:
-        from .agent_adk import GoogleADKOrchestratorAgent
-        from .agent_utils import SharedAuditSession
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_utils import SharedAuditSession
         
         session = SharedAuditSession(
             session_id="ADK_TEST_001",
@@ -77,8 +77,8 @@ def test_adk_tool_definitions():
     print("="*70)
     
     try:
-        from .agent_adk import GoogleADKOrchestratorAgent
-        from .agent_utils import SharedAuditSession
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_utils import SharedAuditSession
         
         # Check for API key
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -114,8 +114,8 @@ def test_adk_audit_execution():
     print("="*70)
     
     try:
-        from .agent_adk import GoogleADKOrchestratorAgent
-        from .agent_utils import SharedAuditSession
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_utils import SharedAuditSession
         
         # Check for API key
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -186,8 +186,8 @@ def test_factory_function():
     print("="*70)
     
     try:
-        from .agent_adk import create_audit_agent
-        from .agent_utils import SharedAuditSession
+        from auditaiflow.agent_adk import create_audit_agent
+        from auditaiflow.agent_utils import SharedAuditSession
         
         session = SharedAuditSession(
             session_id="FACTORY_TEST",
@@ -223,8 +223,8 @@ def test_adk_integration():
     print("="*70)
     
     try:
-        from .agent_adk import GoogleADKOrchestratorAgent
-        from .agent_utils import SharedAuditSession, AuditRecord, AgentFinding
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_utils import SharedAuditSession, AuditRecord, AgentFinding
         from auditaiflow import validate_audit_result
         
         session = SharedAuditSession(

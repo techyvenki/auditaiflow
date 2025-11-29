@@ -28,19 +28,35 @@ except ImportError:
     GOOGLE_ADK_AVAILABLE = False
     print("Warning: Google ADK not available. Install with: pip install google-adk")
 
-from .agent_utils import (
-    SharedAuditSession,
-    generate_unique_id,
-    get_logger,
-    AgentGoal,
-    AgentFinding,
-)
-from .tools import (
-    verify_compliance,
-    validate_data_integrity,
-    detect_anomalies,
-)
-from .config import AUDIT_CONFIG
+# Handle both package and script imports
+try:
+    from .agent_utils import (
+        SharedAuditSession,
+        generate_unique_id,
+        get_logger,
+        AgentGoal,
+        AgentFinding,
+    )
+    from .tools import (
+        verify_compliance,
+        validate_data_integrity,
+        detect_anomalies,
+    )
+    from .config import AUDIT_CONFIG
+except ImportError:
+    from agent_utils import (
+        SharedAuditSession,
+        generate_unique_id,
+        get_logger,
+        AgentGoal,
+        AgentFinding,
+    )
+    from tools import (
+        verify_compliance,
+        validate_data_integrity,
+        detect_anomalies,
+    )
+    from config import AUDIT_CONFIG
 
 logger = get_logger("GoogleADKAgent")
 
