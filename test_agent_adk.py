@@ -40,8 +40,14 @@ def test_adk_instantiation():
     print("="*70)
     
     try:
-        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent, GOOGLE_ADK_AVAILABLE
         from auditaiflow.agent_utils import SharedAuditSession
+        
+        # Check if Google ADK is available
+        if not GOOGLE_ADK_AVAILABLE:
+            print("⚠️  Google ADK not available, skipping instantiation test")
+            print("   To test: pip install google-adk")
+            return True  # Pass with warning
         
         session = SharedAuditSession(
             session_id="ADK_TEST_001",
@@ -65,8 +71,6 @@ def test_adk_instantiation():
         return True, session, agent
     except Exception as e:
         print(f"❌ Instantiation failed: {e}")
-        import traceback
-        traceback.print_exc()
         return False, None, None
 
 
@@ -77,8 +81,13 @@ def test_adk_tool_definitions():
     print("="*70)
     
     try:
-        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent, GOOGLE_ADK_AVAILABLE
         from auditaiflow.agent_utils import SharedAuditSession
+        
+        # Check if Google ADK is available
+        if not GOOGLE_ADK_AVAILABLE:
+            print("⚠️  Google ADK not available, skipping tool definition test")
+            return True  # Pass with warning
         
         # Check for API key
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -114,8 +123,13 @@ def test_adk_audit_execution():
     print("="*70)
     
     try:
-        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent
+        from auditaiflow.agent_adk import GoogleADKOrchestratorAgent, GOOGLE_ADK_AVAILABLE
         from auditaiflow.agent_utils import SharedAuditSession
+        
+        # Check if Google ADK is available
+        if not GOOGLE_ADK_AVAILABLE:
+            print("⚠️  Google ADK not available, skipping audit execution test")
+            return True  # Pass with warning
         
         # Check for API key
         api_key = os.getenv("GOOGLE_API_KEY")
