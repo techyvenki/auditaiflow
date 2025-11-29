@@ -17,7 +17,135 @@ Automation can streamline compliance rule application to every transaction deter
 ---
 
 ## System Architecture Overview
-
+```mermaid
+graph TB
+    subgraph "🎯 Entry Point"
+        EP["User/Test Script<br/>execute_audit()"]
+    end
+    
+    subgraph "🧠 Orchestration Layer"
+        OA["OrchestratorAgent<br/>agent.py<br/>THINK→ACT→OBSERVE"]
+        GAA["GoogleADKOrchestratorAgent<br/>agent_adk.py<br/>Gemini Integration"]
+    end
+    
+    subgraph "👥 Specialist Agents Layer"
+        CA["ComplianceAgent<br/>sub_agents/compliance_agent.py<br/>THINK→ACT→OBSERVE"]
+        DVA["DataValidationAgent<br/>sub_agents/data_validation_agent.py<br/>THINK→ACT→OBSERVE"]
+        ADA["AnomalyDetectionAgent<br/>sub_agents/anomaly_detection_agent.py<br/>THINK→ACT→OBSERVE"]
+    end
+    
+    subgraph "🔗 Coordination & State"
+        SAS["SharedAuditSession<br/>agent_utils.py<br/>• shared_goals<br/>• findings_by_agent<br/>• coordination_events"]
+        AAS["AuditAgentSession<br/>agent_utils.py"]
+    end
+    
+    subgraph "🛠️ Audit Tools"
+        VC["verify_compliance()<br/>tools.py"]
+        VDI["validate_data_integrity()<br/>tools.py"]
+        DA["detect_anomalies()<br/>tools.py"]
+    end
+    
+    subgraph "⚙️ Configuration & Utilities"
+        CR["COMPLIANCE_RULES<br/>config.py"]
+        AC["AUDIT_CONFIG<br/>config.py"]
+        LOG["LOG_CONFIG<br/>config.py"]
+        AG["AgentGoal<br/>agent_utils.py"]
+        AF["AgentFinding<br/>agent_utils.py"]
+        AR["AuditRecord<br/>agent_utils.py"]
+        UTIL["Utilities<br/>generate_unique_id()<br/>consolidate_findings()<br/>get_logger()"]
+    end
+    
+    subgraph "🔍 Validation Layer"
+        VAL["validation_check.py<br/>• validate_audit_record()<br/>• validate_finding()<br/>• validate_audit_result()"]
+    end
+    
+    subgraph "🌐 Google SDK Integration"
+        GENAI["google.genai<br/>Gemini LLM"]
+        TOOLS_SDK["Tool Definitions<br/>FunctionDeclaration<br/>Schema"]
+    end
+    
+    %% Entry Point
+    EP -->|creates session| SAS
+    EP -->|instantiates| OA
+    EP -->|or instantiates| GAA
+    
+    %% OrchestratorAgent flow
+    OA -->|THINK| OA
+    OA -->|ACT: delegate_goal| SAS
+    OA -->|register_specialist| CA
+    OA -->|register_specialist| DVA
+    OA -->|register_specialist| ADA
+    OA -->|ACT: execute| CA
+    OA -->|ACT: execute| DVA
+    OA -->|ACT: execute| ADA
+    OA -->|OBSERVE: read_findings| SAS
+    OA -->|consolidate_findings| UTIL
+    OA -->|uses| LOG
+    
+    %% Specialist agents flow
+    CA -->|THINK| CA
+    CA -->|ACT| VC
+    CA -->|OBSERVE| AF
+    CA -->|send_finding| SAS
+    
+    DVA -->|THINK| DVA
+    DVA -->|ACT| VDI
+    DVA -->|OBSERVE| AF
+    DVA -->|send_finding| SAS
+    
+    ADA -->|THINK| ADA
+    ADA -->|ACT| DA
+    ADA -->|OBSERVE| AF
+    ADA -->|send_finding| SAS
+    
+    %% Tools
+    VC -->|uses| CR
+    VC -->|uses| AC
+    VDI -->|uses| CR
+    VDI -->|uses| AC
+    DA -->|uses| AC
+    
+    %% Validation
+    AF -->|validated by| VAL
+    AR -->|validated by| VAL
+    
+    %% Config & Utils
+    AG -->|created by| OA
+    AF -->|created by| CA
+    AF -->|created by| DVA
+    AF -->|created by| ADA
+    UTIL -->|uses| LOG
+    
+    %% Google ADK flow
+    GAA -->|THINK| GAA
+    GAA -->|uses| GENAI
+    GAA -->|defines tools| TOOLS_SDK
+    GAA -->|calls| handle_tool_call
+    handle_tool_call -->|routes to| VC
+    handle_tool_call -->|routes to| VDI
+    handle_tool_call -->|routes to| DA
+    GAA -->|reads session| SAS
+    GAA -->|uses| LOG
+    
+    %% Factory pattern
+    EP -->|optionally uses| create_audit_agent["create_audit_agent()<br/>agent_adk.py"]
+    create_audit_agent -->|returns| OA
+    create_audit_agent -->|or returns| GAA
+    
+    %% Styling
+    style EP fill:#FFE66D,stroke:#333,stroke-width:2px,color:#333
+    style OA fill:#FF6B6B,stroke:#333,stroke-width:2px,color:#fff
+    style GAA fill:#FF8C42,stroke:#333,stroke-width:2px,color:#fff
+    style CA fill:#4ECDC4,stroke:#333,stroke-width:2px,color:#fff
+    style DVA fill:#4ECDC4,stroke:#333,stroke-width:2px,color:#fff
+    style ADA fill:#4ECDC4,stroke:#333,stroke-width:2px,color:#fff
+    style SAS fill:#95E1D3,stroke:#333,stroke-width:2px,color:#333
+    style VC fill:#A8E6CF,stroke:#333,color:#333
+    style VDI fill:#A8E6CF,stroke:#333,color:#333
+    style DA fill:#A8E6CF,stroke:#333,color:#333
+    style GENAI fill:#667BC6,stroke:#333,stroke-width:2px,color:#fff
+    style TOOLS_SDK fill:#667BC6,stroke:#333,stroke-width:2px,color:#fff
+```
 ```mermaid
 graph TD
     O["🧠 OrchestratorAgent<br/>(Plans, Delegates, Consolidates)"]
