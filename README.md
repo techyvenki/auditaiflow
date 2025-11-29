@@ -16,6 +16,52 @@ Automation can streamline compliance rule application to every transaction deter
 
 ---
 
+## System Architecture Overview
+
+```puml
+@startuml AuditAIFlow_Architecture
+!define ORCHESTRATION_COLOR #FF6B6B
+!define SPECIALIST_COLOR #4ECDC4
+!define SUPPORT_COLOR #95E1D3
+!define DATA_COLOR #FFE66D
+
+package "AuditAIFlow System" {
+    component [OrchestratorAgent] as orchestrator
+    
+    orchestrator --> compliance: "Delegate Goal"
+    orchestrator --> validation: "Delegate Goal"
+    orchestrator --> anomaly: "Delegate Goal"
+    
+    component [ComplianceAgent] as compliance
+    component [DataValidationAgent] as validation
+    component [AnomalyDetectionAgent] as anomaly
+    
+    compliance --> compliance_tool: "Call Tool"
+    validation --> validation_tool: "Call Tool"
+    anomaly --> anomaly_tool: "Call Tool"
+    
+    component [verify_compliance] as compliance_tool
+    component [validate_data_integrity] as validation_tool
+    component [detect_anomalies] as anomaly_tool
+    
+    compliance -.-> shared_session: "Send Finding"
+    validation -.-> shared_session: "Send Finding"
+    anomaly -.-> shared_session: "Send Finding"
+    
+    database "SharedAuditSession" as shared_session {
+        entity "shared_goals"
+        entity "findings_by_agent"
+        entity "coordination_events"
+    }
+    
+    orchestrator -.-> shared_session: "Coordinate & Consolidate"
+}
+
+@enduml
+```
+
+---
+
 ## Solution Statement
 
 AuditAIFlow is an autonomous multi-agent auditing system that intelligently coordinates specialized agents to perform comprehensive enterprise audits:
@@ -49,23 +95,48 @@ The **AuditOrchestrator** executes all audit responsibilities sequentially, demo
    - `validate_data_integrity(audit_records)`: Checks data quality across all records. Returns: `{validation_passed: bool, failure_count: int, data_quality_score: float}` (e.g., "85.5%") instead of listing all 50 failures.
    - `detect_anomalies(audit_records)`: Flags suspicious patterns. Returns: `{anomalies_detected: bool, anomaly_count: int, high_severity_count: int, summary: str}` with confidence scores.
 
-**Execution Flow**:
-```
-THINK: Plan audit steps based on mission
-  ↓
-ACT: Run compliance verification (Tool 1)
-  ↓
-OBSERVE: Analyze compliance gaps, add findings to session
-  ↓
-ACT: Run data validation (Tool 2)
-  ↓
-OBSERVE: Calculate quality score, update session state
-  ↓
-ACT: Run anomaly detection (Tool 3)
-  ↓
-OBSERVE: Categorize anomalies by severity, update session
-  ↓
-REASON: Synthesize all findings into consolidated audit report
+**Execution Flow** (ReAct Loop - Think→Act→Observe):
+
+```puml
+@startuml Level2_ReAct_Flow
+start
+:THINK: Plan audit steps
+based on mission;
+:Determine which tools
+to invoke;
+:ACT: Run compliance
+verification (Tool 1);
+note right
+  verify_compliance()
+  returns violations_found
+end note
+:OBSERVE: Add result
+to session;
+analyze gaps;
+:ACT: Run data
+validation (Tool 2);
+note right
+  validate_data_integrity()
+  returns quality_score
+end note
+:OBSERVE: Update
+session state
+with quality metrics;
+:ACT: Run anomaly
+detection (Tool 3);
+note right
+  detect_anomalies()
+  returns anomaly_count
+end note
+:OBSERVE: Categorize
+anomalies by severity;
+:REASON: Synthesize
+all findings into
+consolidated audit report;
+:Return AuditResult
+to caller;
+stop
+@enduml
 ```
 
 **Key Features**:
@@ -79,34 +150,64 @@ REASON: Synthesize all findings into consolidated audit report
 
 The **OrchestratorAgent** manages a team of autonomous **Specialist Agents** (ComplianceAgent, DataValidationAgent, AnomalyDetectionAgent), each executing independent ReAct loops and coordinating through a **SharedAuditSession**.
 
-**Multi-Agent Architecture**:
+**Multi-Agent Architecture** (Component Diagram):
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    OrchestratorAgent                          │
-│  (THINK→ACT→OBSERVE: Plans, Delegates, Executes, Consolidates)│
-└──────────────────┬───────────────────────────────────────────┘
-                   │
-        ┌──────────┼──────────┐
-        │          │          │
-        ▼          ▼          ▼
-   ┌─────────┐  ┌──────────┐ ┌─────────────┐
-   │Compliance│ │Data Valid│ │  Anomaly    │
-   │ Agent    │ │Agent     │ │ Detection   │
-   │(Autonomus│ │(Autonomus│ │   Agent     │
-   │Think→Act │ │Think→Act │ │(Autonomus)  │
-   │Observe   │ │Observe   │ │Think→Act→Obs│
-   └──────┬───┘ └─────┬────┘ └────┬────────┘
-          │           │           │
-          └───────────┼───────────┘
-                      │
-        ┌─────────────▼──────────────┐
-        │  SharedAuditSession        │
-        │ (Coordination Hub)         │
-        │ • shared_goals             │
-        │ • findings_by_agent        │
-        │ • coordination_events      │
-        └────────────────────────────┘
+```puml
+@startuml MultiAgent_Architecture
+skinparam componentStyle uml2
+
+package "OrchestratorLayer" {
+    component [OrchestratorAgent] as orchestrator {
+        interface "THINK" as o_think
+        interface "ACT" as o_act
+        interface "OBSERVE" as o_observe
+        interface "CONSOLIDATE" as o_consolidate
+    }
+}
+
+package "SpecialistLayer" {
+    component [ComplianceAgent] as comp_agent {
+        interface "THINK"
+        interface "ACT"
+        interface "OBSERVE"
+    }
+    component [DataValidationAgent] as data_agent {
+        interface "THINK" as d_think
+        interface "ACT" as d_act
+        interface "OBSERVE" as d_observe
+    }
+    component [AnomalyDetectionAgent] as anom_agent {
+        interface "THINK" as a_think
+        interface "ACT" as a_act
+        interface "OBSERVE" as a_observe
+    }
+}
+
+package "CoordinationHub" {
+    database "SharedAuditSession" as session
+}
+
+package "ToolLayer" {
+    component [verify_compliance] as tool1
+    component [validate_data_integrity] as tool2
+    component [detect_anomalies] as tool3
+}
+
+orchestrator --> comp_agent: delegate_goal()
+orchestrator --> data_agent: delegate_goal()
+orchestrator --> anom_agent: delegate_goal()
+
+comp_agent --> tool1: call
+data_agent --> tool2: call
+anom_agent --> tool3: call
+
+comp_agent -.-> session: send_finding()
+data_agent -.-> session: send_finding()
+anom_agent -.-> session: send_finding()
+
+orchestrator -.-> session: read_state()
+
+@enduml
 ```
 
 **Specialist Agent Anatomy** (Each implements autonomous ReAct):
@@ -129,7 +230,62 @@ The **OrchestratorAgent** manages a team of autonomous **Specialist Agents** (Co
    - `observe(result)`: Analyzes anomalies, assigns confidence scores
    - Returns `AgentFinding` with anomaly types, counts, confidence levels
 
-**OrchestratorAgent Multi-Step Process**:
+**OrchestratorAgent Multi-Step Process** (A2A Delegation Sequence):
+
+```puml
+@startuml Orchestrator_A2A_Sequence
+participant Orchestrator
+participant "SharedSession"
+participant "ComplianceAgent"
+participant "DataValidationAgent"
+participant "AnomalyDetectionAgent"
+
+Orchestrator -> Orchestrator: THINK: Plan mission\nIdentify specialists needed
+activate Orchestrator
+
+Orchestrator -> SharedSession: delegate_goal(compliance_goal)
+note right of SharedSession
+  goal_type: COMPLIANCE_CHECK
+  assigned_agent: ComplianceAgent
+end note
+
+Orchestrator -> SharedSession: delegate_goal(validation_goal)
+note right of SharedSession
+  goal_type: DATA_VALIDATION
+  assigned_agent: DataValidationAgent
+end note
+
+Orchestrator -> SharedSession: delegate_goal(anomaly_goal)
+note right of SharedSession
+  goal_type: ANOMALY_DETECTION
+  assigned_agent: AnomalyDetectionAgent
+end note
+
+par Parallel Execution
+  Orchestrator -> ComplianceAgent: receive_goal()
+  activate ComplianceAgent
+  ComplianceAgent -> ComplianceAgent: THINK → ACT → OBSERVE
+  ComplianceAgent -> SharedSession: send_finding()
+  deactivate ComplianceAgent
+else
+  Orchestrator -> DataValidationAgent: receive_goal()
+  activate DataValidationAgent
+  DataValidationAgent -> DataValidationAgent: THINK → ACT → OBSERVE
+  DataValidationAgent -> SharedSession: send_finding()
+  deactivate DataValidationAgent
+else
+  Orchestrator -> AnomalyDetectionAgent: receive_goal()
+  activate AnomalyDetectionAgent
+  AnomalyDetectionAgent -> AnomalyDetectionAgent: THINK → ACT → OBSERVE
+  AnomalyDetectionAgent -> SharedSession: send_finding()
+  deactivate AnomalyDetectionAgent
+end
+
+Orchestrator -> SharedSession: read_findings()
+Orchestrator -> Orchestrator: OBSERVE: Consolidate findings\nREASON: Generate report
+deactivate Orchestrator
+@enduml
+```
 
 1. **THINK**: Analyze mission (e.g., "Perform comprehensive compliance, data validation, and anomaly detection audit")
    - Determine which specialists are needed: ComplianceAgent, DataValidationAgent, AnomalyDetectionAgent
