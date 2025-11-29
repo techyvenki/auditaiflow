@@ -18,46 +18,33 @@ Automation can streamline compliance rule application to every transaction deter
 
 ## System Architecture Overview
 
-```puml
-@startuml AuditAIFlow_Architecture
-!define ORCHESTRATION_COLOR #FF6B6B
-!define SPECIALIST_COLOR #4ECDC4
-!define SUPPORT_COLOR #95E1D3
-!define DATA_COLOR #FFE66D
-
-package "AuditAIFlow System" {
-    component [OrchestratorAgent] as orchestrator
+```mermaid
+graph TD
+    O["🧠 OrchestratorAgent<br/>(Plans, Delegates, Consolidates)"]
     
-    orchestrator --> compliance: "Delegate Goal"
-    orchestrator --> validation: "Delegate Goal"
-    orchestrator --> anomaly: "Delegate Goal"
+    O -->|delegate_goal| CA["ComplianceAgent"]
+    O -->|delegate_goal| DA["DataValidationAgent"]
+    O -->|delegate_goal| AA["AnomalyDetectionAgent"]
     
-    component [ComplianceAgent] as compliance
-    component [DataValidationAgent] as validation
-    component [AnomalyDetectionAgent] as anomaly
+    CA -->|call| T1["verify_compliance"]
+    DA -->|call| T2["validate_data_integrity"]
+    AA -->|call| T3["detect_anomalies"]
     
-    compliance --> compliance_tool: "Call Tool"
-    validation --> validation_tool: "Call Tool"
-    anomaly --> anomaly_tool: "Call Tool"
+    CA -.->|send_finding| S[("SharedAuditSession<br/>Coordination Hub")]
+    DA -.->|send_finding| S
+    AA -.->|send_finding| S
     
-    component [verify_compliance] as compliance_tool
-    component [validate_data_integrity] as validation_tool
-    component [detect_anomalies] as anomaly_tool
+    O -.->|read/consolidate| S
     
-    compliance -.-> shared_session: "Send Finding"
-    validation -.-> shared_session: "Send Finding"
-    anomaly -.-> shared_session: "Send Finding"
+    S --> SG["shared_goals"]
+    S --> FB["findings_by_agent"]
+    S --> CE["coordination_events"]
     
-    database "SharedAuditSession" as shared_session {
-        entity "shared_goals"
-        entity "findings_by_agent"
-        entity "coordination_events"
-    }
-    
-    orchestrator -.-> shared_session: "Coordinate & Consolidate"
-}
-
-@enduml
+    style O fill:#FF6B6B,stroke:#333,color:#fff
+    style CA fill:#4ECDC4,stroke:#333,color:#fff
+    style DA fill:#4ECDC4,stroke:#333,color:#fff
+    style AA fill:#4ECDC4,stroke:#333,color:#fff
+    style S fill:#FFE66D,stroke:#333,color:#333
 ```
 
 ---
@@ -97,46 +84,32 @@ The **AuditOrchestrator** executes all audit responsibilities sequentially, demo
 
 **Execution Flow** (ReAct Loop - Think→Act→Observe):
 
-```puml
-@startuml Level2_ReAct_Flow
-start
-:THINK: Plan audit steps
-based on mission;
-:Determine which tools
-to invoke;
-:ACT: Run compliance
-verification (Tool 1);
-note right
-  verify_compliance()
-  returns violations_found
-end note
-:OBSERVE: Add result
-to session;
-analyze gaps;
-:ACT: Run data
-validation (Tool 2);
-note right
-  validate_data_integrity()
-  returns quality_score
-end note
-:OBSERVE: Update
-session state
-with quality metrics;
-:ACT: Run anomaly
-detection (Tool 3);
-note right
-  detect_anomalies()
-  returns anomaly_count
-end note
-:OBSERVE: Categorize
-anomalies by severity;
-:REASON: Synthesize
-all findings into
-consolidated audit report;
-:Return AuditResult
-to caller;
-stop
-@enduml
+```mermaid
+flowchart TD
+    Start([Start Audit]) --> T1["🧠 THINK: Plan audit steps based on mission"]
+    T1 --> T2["Determine which tools to invoke"]
+    
+    T2 --> A1["⚙️ ACT: Run compliance verification Tool 1"]
+    A1 --> O1["👁️ OBSERVE: verify_compliance → violations_found"]
+    
+    O1 --> A2["⚙️ ACT: Run data validation Tool 2"]
+    A2 --> O2["👁️ OBSERVE: validate_data_integrity → quality_score"]
+    
+    O2 --> A3["⚙️ ACT: Run anomaly detection Tool 3"]
+    A3 --> O3["👁️ OBSERVE: detect_anomalies → anomaly_count"]
+    
+    O3 --> R["💭 REASON: Synthesize all findings into report"]
+    R --> End([Return AuditResult])
+    
+    style T1 fill:#B3E5FC,stroke:#01579B,color:#000
+    style T2 fill:#B3E5FC,stroke:#01579B,color:#000
+    style A1 fill:#FFE0B2,stroke:#E65100,color:#000
+    style A2 fill:#FFE0B2,stroke:#E65100,color:#000
+    style A3 fill:#FFE0B2,stroke:#E65100,color:#000
+    style O1 fill:#C8E6C9,stroke:#1B5E20,color:#000
+    style O2 fill:#C8E6C9,stroke:#1B5E20,color:#000
+    style O3 fill:#C8E6C9,stroke:#1B5E20,color:#000
+    style R fill:#F8BBD0,stroke:#880E4F,color:#000
 ```
 
 **Key Features**:
@@ -152,62 +125,47 @@ The **OrchestratorAgent** manages a team of autonomous **Specialist Agents** (Co
 
 **Multi-Agent Architecture** (Component Diagram):
 
-```puml
-@startuml MultiAgent_Architecture
-skinparam componentStyle uml2
-
-package "OrchestratorLayer" {
-    component [OrchestratorAgent] as orchestrator {
-        interface "THINK" as o_think
-        interface "ACT" as o_act
-        interface "OBSERVE" as o_observe
-        interface "CONSOLIDATE" as o_consolidate
-    }
-}
-
-package "SpecialistLayer" {
-    component [ComplianceAgent] as comp_agent {
-        interface "THINK"
-        interface "ACT"
-        interface "OBSERVE"
-    }
-    component [DataValidationAgent] as data_agent {
-        interface "THINK" as d_think
-        interface "ACT" as d_act
-        interface "OBSERVE" as d_observe
-    }
-    component [AnomalyDetectionAgent] as anom_agent {
-        interface "THINK" as a_think
-        interface "ACT" as a_act
-        interface "OBSERVE" as a_observe
-    }
-}
-
-package "CoordinationHub" {
-    database "SharedAuditSession" as session
-}
-
-package "ToolLayer" {
-    component [verify_compliance] as tool1
-    component [validate_data_integrity] as tool2
-    component [detect_anomalies] as tool3
-}
-
-orchestrator --> comp_agent: delegate_goal()
-orchestrator --> data_agent: delegate_goal()
-orchestrator --> anom_agent: delegate_goal()
-
-comp_agent --> tool1: call
-data_agent --> tool2: call
-anom_agent --> tool3: call
-
-comp_agent -.-> session: send_finding()
-data_agent -.-> session: send_finding()
-anom_agent -.-> session: send_finding()
-
-orchestrator -.-> session: read_state()
-
-@enduml
+```mermaid
+graph TB
+    subgraph "🧠 OrchestratorLayer"
+        O["OrchestratorAgent<br/>THINK | ACT | OBSERVE | CONSOLIDATE"]
+    end
+    
+    subgraph "👥 SpecialistLayer"
+        CA["ComplianceAgent<br/>THINK → ACT → OBSERVE"]
+        DA["DataValidationAgent<br/>THINK → ACT → OBSERVE"]
+        AA["AnomalyDetectionAgent<br/>THINK → ACT → OBSERVE"]
+    end
+    
+    subgraph "🔗 CoordinationHub"
+        S[("SharedAuditSession<br/>• shared_goals<br/>• findings_by_agent<br/>• coordination_events")]
+    end
+    
+    subgraph "⚙️ ToolLayer"
+        T1["verify_compliance"]
+        T2["validate_data_integrity"]
+        T3["detect_anomalies"]
+    end
+    
+    O -->|delegate_goal| CA
+    O -->|delegate_goal| DA
+    O -->|delegate_goal| AA
+    
+    CA -->|call| T1
+    DA -->|call| T2
+    AA -->|call| T3
+    
+    CA -->|send_finding| S
+    DA -->|send_finding| S
+    AA -->|send_finding| S
+    
+    O -.->|read_state| S
+    
+    style O fill:#FF6B6B,stroke:#333,color:#fff,stroke-width:2px
+    style CA fill:#4ECDC4,stroke:#333,color:#fff
+    style DA fill:#4ECDC4,stroke:#333,color:#fff
+    style AA fill:#4ECDC4,stroke:#333,color:#fff
+    style S fill:#FFE66D,stroke:#333,color:#333,stroke-width:2px
 ```
 
 **Specialist Agent Anatomy** (Each implements autonomous ReAct):
@@ -232,59 +190,36 @@ orchestrator -.-> session: read_state()
 
 **OrchestratorAgent Multi-Step Process** (A2A Delegation Sequence):
 
-```puml
-@startuml Orchestrator_A2A_Sequence
-participant Orchestrator
-participant "SharedSession"
-participant "ComplianceAgent"
-participant "DataValidationAgent"
-participant "AnomalyDetectionAgent"
-
-Orchestrator -> Orchestrator: THINK: Plan mission\nIdentify specialists needed
-activate Orchestrator
-
-Orchestrator -> SharedSession: delegate_goal(compliance_goal)
-note right of SharedSession
-  goal_type: COMPLIANCE_CHECK
-  assigned_agent: ComplianceAgent
-end note
-
-Orchestrator -> SharedSession: delegate_goal(validation_goal)
-note right of SharedSession
-  goal_type: DATA_VALIDATION
-  assigned_agent: DataValidationAgent
-end note
-
-Orchestrator -> SharedSession: delegate_goal(anomaly_goal)
-note right of SharedSession
-  goal_type: ANOMALY_DETECTION
-  assigned_agent: AnomalyDetectionAgent
-end note
-
-par Parallel Execution
-  Orchestrator -> ComplianceAgent: receive_goal()
-  activate ComplianceAgent
-  ComplianceAgent -> ComplianceAgent: THINK → ACT → OBSERVE
-  ComplianceAgent -> SharedSession: send_finding()
-  deactivate ComplianceAgent
-else
-  Orchestrator -> DataValidationAgent: receive_goal()
-  activate DataValidationAgent
-  DataValidationAgent -> DataValidationAgent: THINK → ACT → OBSERVE
-  DataValidationAgent -> SharedSession: send_finding()
-  deactivate DataValidationAgent
-else
-  Orchestrator -> AnomalyDetectionAgent: receive_goal()
-  activate AnomalyDetectionAgent
-  AnomalyDetectionAgent -> AnomalyDetectionAgent: THINK → ACT → OBSERVE
-  AnomalyDetectionAgent -> SharedSession: send_finding()
-  deactivate AnomalyDetectionAgent
-end
-
-Orchestrator -> SharedSession: read_findings()
-Orchestrator -> Orchestrator: OBSERVE: Consolidate findings\nREASON: Generate report
-deactivate Orchestrator
-@enduml
+```mermaid
+sequenceDiagram
+    participant Orchestrator
+    participant SharedSession
+    participant ComplianceAgent
+    participant DataValidationAgent
+    participant AnomalyDetectionAgent
+    
+    Orchestrator->>Orchestrator: 🧠 THINK: Plan mission<br/>Identify specialists needed
+    
+    Orchestrator->>SharedSession: delegate_goal(compliance_goal)<br/>COMPLIANCE_CHECK
+    Orchestrator->>SharedSession: delegate_goal(validation_goal)<br/>DATA_VALIDATION
+    Orchestrator->>SharedSession: delegate_goal(anomaly_goal)<br/>ANOMALY_DETECTION
+    
+    par Parallel Execution
+        Orchestrator->>ComplianceAgent: receive_goal()
+        ComplianceAgent->>ComplianceAgent: THINK → ACT → OBSERVE
+        ComplianceAgent->>SharedSession: send_finding()
+    and
+        Orchestrator->>DataValidationAgent: receive_goal()
+        DataValidationAgent->>DataValidationAgent: THINK → ACT → OBSERVE
+        DataValidationAgent->>SharedSession: send_finding()
+    and
+        Orchestrator->>AnomalyDetectionAgent: receive_goal()
+        AnomalyDetectionAgent->>AnomalyDetectionAgent: THINK → ACT → OBSERVE
+        AnomalyDetectionAgent->>SharedSession: send_finding()
+    end
+    
+    Orchestrator->>SharedSession: read_findings()
+    Orchestrator->>Orchestrator: 👁️ OBSERVE: Consolidate<br/>💭 REASON: Generate report
 ```
 
 1. **THINK**: Analyze mission (e.g., "Perform comprehensive compliance, data validation, and anomaly detection audit")
@@ -965,8 +900,3 @@ AuditAIFlow reduced my enterprise audit time from 20+ hours to ~2 minutes per cy
 4. Build **remediation workflows**: automatically trigger fixes for common violations
 5. Implement **bias monitoring**: audit fairness in anomaly detection (e.g., flag admin activity equally regardless of tenure)
 6. Connect to **real enterprise systems**: ERP, CRM, billing, security logs instead of sample data
-
----
-
-**Status**: ✅ Ready for Submission  
-**Deadline**: December 1, 2025, 11:59 AM PT
